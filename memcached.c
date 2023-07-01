@@ -5875,7 +5875,8 @@ int main (int argc, char **argv) {
     }
 
     /* lose root privileges if we have them */
-    if (getuid() == 0 || geteuid() == 0) {
+    //if (getuid() == 0 || geteuid() == 0) {
+    if (false) {
         if (username == 0 || *username == '\0') {
             fprintf(stderr, "can't run as root without the -u switch\n");
             exit(EX_USAGE);
