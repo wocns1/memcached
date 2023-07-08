@@ -63,6 +63,7 @@
 #ifndef SO_INCOMING_NAPI_ID
 #define SO_INCOMING_NAPI_ID 56
 #endif
+struct libevent_wostruct;
 
 /** Maximum length of a key. */
 #define KEY_MAX_LENGTH 250
@@ -184,6 +185,7 @@ typedef void (*ADD_STAT)(const char *key, const uint16_t klen,
                          const char *val, const uint32_t vlen,
                          const void *cookie);
 
+struct LIBEVENT_STRUCT;
 /*
  * NOTE: If you modify this table you _MUST_ update the function state_text
  */
@@ -538,6 +540,10 @@ struct settings {
 #ifdef SOCK_COOKIE_ID
     uint32_t sock_cookie_id;
 #endif
+    int op;
+    unsigned long long iter_count;
+    unsigned long long curr_iter;
+    struct libevent_wostruct *threads;
 };
 
 extern struct stats stats;
@@ -691,7 +697,7 @@ typedef struct io_queue_cb_s {
 } io_queue_cb_t;
 
 typedef struct _mc_resp_bundle mc_resp_bundle;
-typedef struct {
+struct libevent_wostruct {
     pthread_t thread_id;        /* unique ID of this thread */
     struct event_base *base;    /* libevent handle this thread uses */
     struct event notify_event;  /* listen event for notify pipe */
@@ -732,7 +738,8 @@ typedef struct {
     uint32_t proxy_rng[4]; // fast per-thread rng for lua.
     // TODO: add ctx object so we can attach to queue.
 #endif
-} LIBEVENT_THREAD;
+};
+typedef struct libevent_wostruct LIBEVENT_THREAD;
 
 /**
  * Response objects
@@ -1061,3 +1068,5 @@ extern void drop_worker_privileges(void);
 
 #define likely(x)       __builtin_expect((x),1)
 #define unlikely(x)     __builtin_expect((x),0)
+
+void setup_thread(LIBEVENT_THREAD *me); 

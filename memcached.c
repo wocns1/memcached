@@ -131,13 +131,29 @@ enum transmit_result {
 
 /* Default methods to read from/ write to a socket */
 ssize_t tcp_read(conn *c, void *buf, size_t count) {
+    int ret = 0;
     assert (c != NULL);
-    return read(c->sfd, buf, count);
+     if (settings.op == 0) {
+        ret = snprintf(buf, 300, "set womemc-%0128llu 0 0 128\r\n%0128llu\r\n", settings.curr_iter, settings.curr_iter);
+    }
+    else {
+        ret = snprintf(buf, 300, "get womemc-%0128llu\r\n", settings.curr_iter);
+    }
+    //return read(c->sfd, buf, count);
+    return ret;
+    FILE *f;
+    f = fopen("./command.log", "a+");
+    fprintf(f, "req %s\n", buf);
+    fclose(f);
 }
 
 ssize_t tcp_sendmsg(conn *c, struct msghdr *msg, int flags) {
     assert (c != NULL);
-    return sendmsg(c->sfd, msg, flags);
+    FILE *f;
+    f = fopen("./command.log", "a+");
+    fprintf(f, "rsp %s\n", msg->msg_iov->iov_base);
+    fclose(f);
+    return printf("WO %s\n", msg->msg_iov->iov_base);
 }
 
 ssize_t tcp_write(conn *c, void *buf, size_t count) {
@@ -248,7 +264,7 @@ static void settings_init(void) {
     settings.auth_file = NULL;        /* by default, not using ASCII authentication tokens */
     settings.factor = 1.25;
     settings.chunk_size = 48;         /* space for a modest key and value */
-    settings.num_threads = 4;         /* N workers */
+    settings.num_threads = 1;         /* N workers */
     settings.num_threads_per_udp = 0;
     settings.prefix_delimiter = ':';
     settings.detail_enabled = 0;
@@ -2479,6 +2495,10 @@ static enum try_read_result try_read_network(conn *c) {
         int avail = c->rsize - c->rbytes;
         res = c->read(c, c->rbuf + c->rbytes, avail);
         if (res > 0) {
+//            FILE *f;
+//            f = fopen("./command.log", "a+");
+//            fprintf(f, "req %s\n", c->rbuf);
+//            fclose(f);
             pthread_mutex_lock(&c->thread->stats.mutex);
             c->thread->stats.bytes_read += res;
             pthread_mutex_unlock(&c->thread->stats.mutex);
@@ -2993,13 +3013,14 @@ static void drive_machine(conn *c) {
             addrlen = sizeof(addr);
 #ifdef HAVE_ACCEPT4
             if (use_accept4) {
-                sfd = accept4(c->sfd, (struct sockaddr *)&addr, &addrlen, SOCK_NONBLOCK);
+                //sfd = accept4(c->sfd, (struct sockaddr *)&addr, &addrlen, SOCK_NONBLOCK);
             } else {
-                sfd = accept(c->sfd, (struct sockaddr *)&addr, &addrlen);
+                //sfd = accept(c->sfd, (struct sockaddr *)&addr, &addrlen);
             }
 #else
             sfd = accept(c->sfd, (struct sockaddr *)&addr, &addrlen);
 #endif
+            sfd = 0;
             if (sfd == -1) {
                 if (use_accept4 && errno == ENOSYS) {
                     use_accept4 = 0;
@@ -3401,11 +3422,16 @@ static void drive_machine(conn *c) {
 void event_handler(const evutil_socket_t fd, const short which, void *arg) {
     conn *c;
 
-    c = (conn *)arg;
+    c = listen_conn;
     assert(c != NULL);
 
     c->which = which;
+    c->state = conn_read;
+    c->thread = &settings.threads[0];
+    setup_thread(c->thread);
+    //cache_set_limit(c->thread->rbuf_cache, 16384);
 
+#if 0
     /* sanity */
     if (fd != c->sfd) {
         if (settings.verbose > 0)
@@ -3413,7 +3439,7 @@ void event_handler(const evutil_socket_t fd, const short which, void *arg) {
         conn_close(c);
         return;
     }
-
+#endif
     drive_machine(c);
 
     /* wait for next event */
@@ -4951,6 +4977,8 @@ int main (int argc, char **argv) {
           "e:"  /* mmap path for external item memory */
           "o:"  /* Extended generic options */
           "N:"  /* NAPI ID based thread selection */
+          "G:"
+          "T:"
           ;
 
     /* process arguments */
@@ -5001,6 +5029,14 @@ int main (int argc, char **argv) {
     while (-1 != (c = getopt(argc, argv, shortopts))) {
 #endif
         switch (c) {
+        case 'T':
+            /* enables "shutdown" command */
+            settings.iter_count = atoll(optarg);
+            break;
+        case 'G':
+            /* enables "shutdown" command */
+            settings.op = atoll(optarg);
+            break;
         case 'A':
             /* enables "shutdown" command */
             settings.shutdown_command = true;
@@ -6224,12 +6260,26 @@ int main (int argc, char **argv) {
     uriencode_init();
 
     /* enter the event loop */
-    while (!stop_main_loop) {
-        if (event_base_loop(main_base, EVLOOP_ONCE) != 0) {
-            retval = EXIT_FAILURE;
-            break;
-        }
+    unsigned long long iter  = 0;
+    settings.curr_iter = 0;
+    while (iter < settings.iter_count) {
+        event_handler(0,0,NULL);
+        settings.curr_iter++;
+        iter++;
     }
+    settings.op = 1;
+    settings.curr_iter = 0;
+    iter = 0;
+    while (iter < settings.iter_count) {
+        event_handler(0,0,NULL);
+        settings.curr_iter++;
+        iter++;
+        //if (event_base_loop(main_base, EVLOOP_ONCE) != 0) {
+        //    retval = EXIT_FAILURE;
+        //    break;
+        //}
+    }
+    stop_main_loop = EXIT_NORMALLY;
 
     switch (stop_main_loop) {
         case GRACE_STOP:

@@ -404,7 +404,7 @@ void accept_new_conns(const bool do_accept) {
 /*
  * Set up a thread's information.
  */
-static void setup_thread(LIBEVENT_THREAD *me) {
+void setup_thread(LIBEVENT_THREAD *me) {
 #if defined(LIBEVENT_VERSION_NUMBER) && LIBEVENT_VERSION_NUMBER >= 0x02000101
     struct event_config *ev_config;
     ev_config = event_config_new();
@@ -1106,5 +1106,6 @@ void memcached_thread_init(int nthreads, void *arg) {
     pthread_mutex_lock(&init_lock);
     wait_for_thread_registration(nthreads);
     pthread_mutex_unlock(&init_lock);
+    settings.threads = threads;
 }
 
