@@ -141,19 +141,24 @@ ssize_t tcp_read(conn *c, void *buf, size_t count) {
     }
     //return read(c->sfd, buf, count);
     return ret;
+#if 0
     FILE *f;
     f = fopen("./command.log", "a+");
     fprintf(f, "req %s\n", buf);
     fclose(f);
+#endif
 }
 
 ssize_t tcp_sendmsg(conn *c, struct msghdr *msg, int flags) {
     assert (c != NULL);
+#if 0
     FILE *f;
     f = fopen("./command.log", "a+");
     fprintf(f, "rsp %s\n", msg->msg_iov->iov_base);
     fclose(f);
-    return printf("WO %s\n", msg->msg_iov->iov_base);
+#endif
+    return msg->msg_iov->iov_len;
+    //return printf("%s-%d\n", msg->msg_iov->iov_base, msg->msg_iov->iov_len);
 }
 
 ssize_t tcp_write(conn *c, void *buf, size_t count) {
@@ -2742,6 +2747,7 @@ static enum transmit_result transmit(conn *c) {
         // Decrement any partial IOV's and complete any finished resp's.
         _transmit_post(c, res);
 
+        return TRANSMIT_COMPLETE;
         if (c->resp_head) {
             return TRANSMIT_INCOMPLETE;
         } else {
@@ -6256,20 +6262,28 @@ int main (int argc, char **argv) {
     /* Initialize the uriencode lookup table. */
     uriencode_init();
 
+    struct timespec tstart;
+    struct timespec tend;
     /* enter the event loop */
     unsigned long long iter  = 0;
     settings.curr_iter = 0;
     listen_conn->thread = &settings.threads[0];
     setup_thread(listen_conn->thread);
+    clock_gettime(CLOCK_MONOTONIC, &tstart);
     while (iter < settings.iter_count) {
         event_handler(0,0,NULL);
         settings.curr_iter++;
         iter++;
     }
+    clock_gettime(CLOCK_MONOTONIC, &tend);
+    printf("[SET] Time taken for %lu req is %.6f microSec\n", settings.iter_count,
+                   1.0e+6 * (((double)tend.tv_sec + 1.0e-9 * tend.tv_nsec) -
+                             ((double)tstart.tv_sec + 1.0e-9 * tstart.tv_nsec)));
     settings.op = 1;
     settings.curr_iter = 0;
     iter = 0;
 
+    clock_gettime(CLOCK_MONOTONIC, &tstart);
     while (iter < settings.iter_count) {
         event_handler(0,0,NULL);
         settings.curr_iter++;
@@ -6279,6 +6293,10 @@ int main (int argc, char **argv) {
         //    break;
         //}
     }
+    clock_gettime(CLOCK_MONOTONIC, &tend);
+    printf("[GET] Time taken for %lu req is %.6f microSec\n", settings.iter_count,
+                   1.0e+6 * (((double)tend.tv_sec + 1.0e-9 * tend.tv_nsec) -
+                             ((double)tstart.tv_sec + 1.0e-9 * tstart.tv_nsec)));
     stop_main_loop = EXIT_NORMALLY;
 
     switch (stop_main_loop) {
@@ -6314,7 +6332,7 @@ int main (int argc, char **argv) {
       free(settings.inter);
 
     /* cleanup base */
-    event_base_free(main_base);
+    //event_base_free(main_base);
 
     free(meta);
 
