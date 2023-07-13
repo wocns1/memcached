@@ -3109,6 +3109,10 @@ static void drive_machine(conn *c) {
             break;
 
         case conn_read:
+            clock_gettime(CLOCK_MONOTONIC, &c->tstart);
+            printf("Time between 2 req is %.6f microSec\n",
+                   1.0e+6 * (((double)c->tstart.tv_sec + 1.0e-9 * c->tstart.tv_nsec) -
+                             ((double)c->tend.tv_sec + 1.0e-9 * c->tend.tv_nsec)));
             if (!IS_UDP(c->transport)) {
                 // Assign a read buffer if necessary.
                 if (!rbuf_alloc(c)) {
@@ -3344,6 +3348,7 @@ static void drive_machine(conn *c) {
 
             switch (!IS_UDP(c->transport) ? transmit(c) : transmit_udp(c)) {
             case TRANSMIT_COMPLETE:
+                clock_gettime(CLOCK_MONOTONIC, &c->tend);
                 if (c->state == conn_mwrite) {
                     // Free up IO wraps and any half-uploaded items.
                     conn_release_items(c);
