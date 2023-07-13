@@ -3427,9 +3427,6 @@ void event_handler(const evutil_socket_t fd, const short which, void *arg) {
 
     c->which = which;
     c->state = conn_read;
-    c->thread = &settings.threads[0];
-    setup_thread(c->thread);
-    //cache_set_limit(c->thread->rbuf_cache, 16384);
 
 #if 0
     /* sanity */
@@ -6262,6 +6259,8 @@ int main (int argc, char **argv) {
     /* enter the event loop */
     unsigned long long iter  = 0;
     settings.curr_iter = 0;
+    listen_conn->thread = &settings.threads[0];
+    setup_thread(listen_conn->thread);
     while (iter < settings.iter_count) {
         event_handler(0,0,NULL);
         settings.curr_iter++;
@@ -6270,6 +6269,7 @@ int main (int argc, char **argv) {
     settings.op = 1;
     settings.curr_iter = 0;
     iter = 0;
+
     while (iter < settings.iter_count) {
         event_handler(0,0,NULL);
         settings.curr_iter++;
