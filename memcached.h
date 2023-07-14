@@ -542,7 +542,8 @@ struct settings {
 #endif
     int op;
     unsigned long long iter_count;
-    unsigned long long curr_iter;
+    unsigned long long arr_traverse;
+    unsigned long long arr_base_traverse;
     struct libevent_wostruct *threads;
 };
 

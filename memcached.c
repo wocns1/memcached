@@ -134,11 +134,12 @@ ssize_t tcp_read(conn *c, void *buf, size_t count) {
     int ret = 0;
     assert (c != NULL);
      if (settings.op == 0) {
-        ret = snprintf(buf, 300, "set womemc-%0128llu 0 0 128\r\n%0128llu\r\n", settings.curr_iter, settings.curr_iter);
+        ret = snprintf(buf, 300, "set womemc-%0128llu 0 0 128\r\n%0128llu\r\n", settings.arr_traverse, settings.arr_traverse);
     }
     else {
-        ret = snprintf(buf, 300, "get womemc-%0128llu\r\n", settings.curr_iter);
+        ret = snprintf(buf, 300, "get womemc-%0128llu\r\n", settings.arr_traverse);
     }
+    //printf("command - %s\n", buf);
     //return read(c->sfd, buf, count);
     return ret;
 #if 0
@@ -6266,13 +6267,13 @@ int main (int argc, char **argv) {
     struct timespec tend;
     /* enter the event loop */
     unsigned long long iter  = 0;
-    settings.curr_iter = 0;
     listen_conn->thread = &settings.threads[0];
     setup_thread(listen_conn->thread);
+    settings.arr_traverse = 0;
     clock_gettime(CLOCK_MONOTONIC, &tstart);
     while (iter < settings.iter_count) {
         event_handler(0,0,NULL);
-        settings.curr_iter++;
+        settings.arr_traverse++;
         iter++;
     }
     clock_gettime(CLOCK_MONOTONIC, &tend);
@@ -6280,13 +6281,19 @@ int main (int argc, char **argv) {
                    1.0e+6 * (((double)tend.tv_sec + 1.0e-9 * tend.tv_nsec) -
                              ((double)tstart.tv_sec + 1.0e-9 * tstart.tv_nsec)));
     settings.op = 1;
-    settings.curr_iter = 0;
+    settings.arr_traverse = 0;
+    settings.arr_base_traverse = 0;
     iter = 0;
 
     clock_gettime(CLOCK_MONOTONIC, &tstart);
     while (iter < settings.iter_count) {
+        if (settings.arr_traverse >= settings.iter_count)
+        {
+            settings.arr_base_traverse += 1;
+            settings.arr_traverse = settings.arr_base_traverse;
+        }
         event_handler(0,0,NULL);
-        settings.curr_iter++;
+        settings.arr_traverse += (settings.iter_count/10);
         iter++;
         //if (event_base_loop(main_base, EVLOOP_ONCE) != 0) {
         //    retval = EXIT_FAILURE;
